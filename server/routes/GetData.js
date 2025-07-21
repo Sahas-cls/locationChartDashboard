@@ -3,6 +3,7 @@ const router = express.Router();
 const { poolPromise } = require("../db");
 
 router.get("/getData", async (req, res) => {
+  console.log("getting data");
   try {
     const { search = "", page = 1, pageSize = 8 } = req.query;
     const offset = (page - 1) * pageSize;
@@ -14,13 +15,8 @@ router.get("/getData", async (req, res) => {
       SELECT DISTINCT 
         ITEM_CODE, FAB_PO_NO, BUYER_NAME, UOM, 
         MATERIAL_SUPPLIER_NAME, INSPECTION_STATUS
-      FROM VIEW_FABRIC_STOCK_DETAILS WITH (NOLOCK)
-      WHERE COM_CODE = 1 
-        AND LOCATION_CODE = 1
-        AND STOCK_LOCATION LIKE 'MAIN'
-        AND ITEM_CODE IS NOT NULL
-        AND RECEIVED_DATE > '2025-01-01'
-        AND CATEGORY_CODE LIKE 'FAB'
+      FROM VIEW_MATERIAL_STOCK_COMBINED
+      
         ${
           search
             ? ` AND (ITEM_CODE LIKE '%' + @search + '%' OR MATERIAL_SUPPLIER_NAME LIKE '%' + @search + '%')`
@@ -48,21 +44,21 @@ router.get("/getData", async (req, res) => {
     // Then get all locations for these groups
     const locationsQuery = `
       SELECT 
-        ITEM_CODE, FAB_PO_NO, STOCK_BAR_CODE, RACK_NO, SHELF_NO, 
-        STOCK_LOCATION, QTY, RECEIVED_DATE, INVOICE_NO
-      FROM VIEW_FABRIC_STOCK_DETAILS WITH (NOLOCK)
-      WHERE (${groups
-        .map(
-          (g) =>
-            `(ITEM_CODE = '${g.ITEM_CODE}' AND FAB_PO_NO = '${g.FAB_PO_NO}')`
-        )
-        .join(" OR ")})
-      ORDER BY ITEM_CODE, FAB_PO_NO, STOCK_BAR_CODE
+        ITEM_CODE, FAB_PO_NO, BAR_CODE, MLS_RACK_NO, MLS_SHELF_NO, 
+        STOCK_LOCATION, MLS_QTY, RECEIVED_DATE, INVOICE_NO
+      FROM VIEW_MATERIAL_STOCK_COMBINED
+      		WHERE (${groups
+            .map(
+              (g) =>
+                `(ITEM_CODE = '${g.ITEM_CODE}' AND FAB_PO_NO = '${g.FAB_PO_NO}')`
+            )
+            .join(" OR ")})
+      ORDER BY ITEM_CODE, FAB_PO_NO, BAR_CODE
     `;
 
     const locationsResult = await request.query(locationsQuery);
     const allLocations = locationsResult.recordset;
-
+    // console.log("lresult: ", locationsResult);
     // Combine data
     const formattedData = groups.map((group) => {
       const locations = allLocations
@@ -73,15 +69,13 @@ router.get("/getData", async (req, res) => {
         )
         .map((loc) => ({
           BAR_CODE: loc.STOCK_BAR_CODE,
-          RACK_NO: loc.RACK_NO,
-          SHELF_NO: loc.SHELF_NO,
+          RACK_NO: loc.MLS_RACK_NO,
+          SHELF_NO: loc.MLS_SHELF_NO,
           STOCK_LOCATION: loc.STOCK_LOCATION,
-          QTY: parseFloat(loc.QTY),
+          QTY: parseFloat(loc.MLS_QTY),
           RECEIVED_DATE: loc.RECEIVED_DATE,
           INVOICE_NO: loc.INVOICE_NO,
-          FULL_LOCATION: loc.RACK_NO
-            ? `${loc.STOCK_LOCATION}-${loc.RACK_NO}-${loc.SHELF_NO}`
-            : "Not specified",
+          FULL_LOCATION: `${loc.STOCK_LOCATION}-${loc.MLS_RACK_NO}-${loc.MLS_SHELF_NO}`,
         }));
 
       return {
@@ -94,12 +88,7 @@ router.get("/getData", async (req, res) => {
     // Get total count
     const countQuery = `
       SELECT COUNT(DISTINCT CONCAT(ITEM_CODE, '_', FAB_PO_NO)) as total
-      FROM VIEW_FABRIC_STOCK_DETAILS WITH (NOLOCK)
-      WHERE COM_CODE = 1 
-        AND STOCK_LOCATION LIKE 'MAIN'
-        AND ITEM_CODE IS NOT NULL
-        AND RECEIVED_DATE > '2025-01-01'
-        AND CATEGORY_CODE LIKE 'FAB'
+      FROM VIEW_MATERIAL_STOCK_COMBINED
         ${
           search
             ? ` AND (ITEM_CODE LIKE '%' + @search + '%' OR MATERIAL_SUPPLIER_NAME LIKE '%' + @search + '%')`

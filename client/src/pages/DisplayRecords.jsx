@@ -216,7 +216,7 @@ const WarehouseDashboard = () => {
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-6 mb-8"
+              className="grid grid-cols-1 sm:grid-cols-6 gap-6 mb-8"
             >
               {fabrics.map((fabric, index) => (
                 <motion.div
@@ -235,10 +235,10 @@ const WarehouseDashboard = () => {
                       <div className="flex flex-col h-full">
                         {/* Top - Always at top */}
                         <div className="bg-teal-600 text-white p-4">
-                          <h2 className="text-lg font-bold truncate">
+                          <h2 className="text-md font-bold truncate">
                             {fabric.ITEM_CODE}
                           </h2>
-                          <p className="text-sm truncate">
+                          <p className="text-xm truncate">
                             {fabric.BUYER_NAME} | Total: {fabric.totalQty}{" "}
                             {fabric.UOM}
                           </p>
